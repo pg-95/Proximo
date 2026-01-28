@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Blackjack Table</title>
+  <title>Blackjack</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 
@@ -11,10 +11,9 @@
 
   <h1>♠ Blackjack ♣</h1>
 
-  <div class="stats">
+  <div class="stats-bar">
     <div>Chips: <span id="chips">1000</span></div>
-    <div>Wins: <span id="wins">0</span></div>
-    <div>Losses: <span id="losses">0</span></div>
+    <button id="stats-btn">Stats</button>
   </div>
 
   <div class="table">
@@ -34,6 +33,19 @@
     </div>
 
     <h3 id="message"></h3>
+  </div>
+
+  <div id="stats-modal" class="modal hidden">
+    <div class="modal-content">
+      <h2>Player Stats</h2>
+
+      <p>Hands Played: <span id="stat-hands">0</span></p>
+      <p>Hands Won: <span id="stat-wins">0</span></p>
+      <p>User Blackjacks: <span id="stat-user-bj">0</span></p>
+      <p>Dealer Blackjacks: <span id="stat-dealer-bj">0</span></p>
+
+      <button id="close-stats">Close</button>
+    </div>
   </div>
 
   <footer>
