@@ -1,50 +1,88 @@
 body {
   margin: 0;
-  background: radial-gradient(circle, #0f7a4f 0%, #06442c 70%);
-  color: #fff;
+  background: radial-gradient(circle at center, #0f8b5a 0%, #063b27 70%);
   font-family: -apple-system, BlinkMacSystemFont, Arial;
+  color: #fff;
   text-align: center;
 }
 
 h1 {
-  margin-top: 15px;
-  letter-spacing: 2px;
+  margin: 12px 0;
+  letter-spacing: 3px;
 }
 
 .stats {
   display: flex;
   justify-content: space-around;
-  margin: 10px;
-  font-size: 18px;
+  margin: 8px 12px;
+  font-size: 16px;
   font-weight: bold;
 }
 
 .table {
   background: #0b5f3c;
-  margin: 15px;
-  padding: 20px;
-  border-radius: 25px;
-  box-shadow: 0 0 30px rgba(0,0,0,.5);
+  margin: 10px;
+  padding: 18px;
+  border-radius: 30px;
+  box-shadow:
+    inset 0 0 20px rgba(255,255,255,0.08),
+    0 15px 40px rgba(0,0,0,0.6);
 }
 
 .cards {
-  font-size: 28px;
-  min-height: 40px;
-  margin-bottom: 10px;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin: 10px 0;
+}
+
+.card {
+  width: 58px;
+  height: 82px;
+  background: #fff;
+  border-radius: 8px;
+  color: black;
+  font-weight: bold;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 6px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+  animation: deal 0.25s ease;
+}
+
+.card.red {
+  color: #c62828;
+}
+
+.card .top {
+  font-size: 16px;
+  text-align: left;
+}
+
+.card .center {
+  font-size: 22px;
+  text-align: center;
+}
+
+.card .bottom {
+  font-size: 16px;
+  text-align: right;
+  transform: rotate(180deg);
 }
 
 .buttons {
-  margin-top: 15px;
+  margin-top: 14px;
 }
 
 button {
   width: 30%;
   padding: 16px 0;
   font-size: 18px;
-  border-radius: 12px;
+  border-radius: 14px;
   border: none;
   margin: 6px;
-  background: #ffd700;
+  background: linear-gradient(#ffd700, #d4af37);
   font-weight: bold;
 }
 
@@ -53,7 +91,18 @@ button:active {
 }
 
 footer {
-  font-size: 12px;
-  opacity: 0.7;
-  margin-top: 15px;
+  margin-top: 10px;
+  font-size: 11px;
+  opacity: 0.6;
+}
+
+@keyframes deal {
+  from {
+    transform: translateY(-10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
