@@ -2,25 +2,16 @@ let deck = [];
 let playerHand = [];
 let dealerHand = [];
 
-let chips = 1000;
-let wins = 0;
-let losses = 0;
-const bet = 50;
-
-function updateStats() {
-  document.getElementById("chips").innerText = chips;
-  document.getElementById("wins").innerText = wins;
-  document.getElementById("losses").innerText = losses;
-}
+let gameOver = false;
+let dealerHidden = true;
 
 function createDeck() {
   const suits = ["♠","♥","♦","♣"];
   const values = ["A","2","3","4","5","6","7","8","9","10","J","Q","K"];
   deck = [];
-
   for (let s of suits) {
     for (let v of values) {
-      deck.push({value:v, suit:s});
+      deck.push({ value: v, suit: s });
     }
   }
 }
@@ -34,21 +25,25 @@ function deal() {
 }
 
 function handValue(hand) {
-  let value = 0;
+  let total = 0;
   let aces = 0;
 
   for (let c of hand) {
-    if (["J","Q","K"].includes(c.value)) value += 10;
-    else if (c.value === "A") { value += 11; aces++; }
-    else value += parseInt(c.value);
+    if (["J","Q","K"].includes(c.value)) total += 10;
+    else if (c.value === "A") {
+      total += 11;
+      aces++;
+    } else {
+      total += parseInt(c.value);
+    }
   }
 
-  while (value > 21 && aces > 0) {
-    value -= 10;
+  while (total > 21 && aces > 0) {
+    total -= 10;
     aces--;
   }
 
-  return value;
+  return total;
 }
 
 function render() {
@@ -56,45 +51,65 @@ function render() {
     playerHand.map(c => c.value + c.suit).join(" ");
 
   document.getElementById("dealer-cards").innerText =
-    dealerHand.map(c => c.value + c.suit).join(" ");
+    dealerHand.map((c, i) => {
+      if (i === 1 && dealerHidden) return "🂠";
+      return c.value + c.suit;
+    }).join(" ");
 
   document.getElementById("player-score").innerText =
     "Score: " + handValue(playerHand);
 
   document.getElementById("dealer-score").innerText =
-    "Score: " + handValue(dealerHand);
+    dealerHidden ? "" : "Score: " + handValue(dealerHand);
+}
 
-  updateStats();
+function endGame(message) {
+  gameOver = true;
+  dealerHidden = false;
+  document.getElementById("message").innerText = message;
+  render();
 }
 
 function startHand() {
-  if (chips < bet) {
-    document.getElementById("message").innerText = "Out of chips!";
-    return;
-  }
+  gameOver = false;
+  dealerHidden = true;
 
   createDeck();
   shuffle();
 
   playerHand = [deal(), deal()];
   dealerHand = [deal(), deal()];
-  document.getElementById("message").innerText = "";
+
+  const playerTotal = handValue(playerHand);
+  const dealerTotal = handValue(dealerHand);
 
   render();
+
+  if (playerTotal === 21 && dealerTotal !== 21) {
+    endGame("Blackjack! You win!");
+  } else if (dealerTotal === 21 && playerTotal !== 21) {
+    endGame("Dealer blackjack.");
+  } else if (dealerTotal === 21 && playerTotal === 21) {
+    endGame("Push.");
+  }
 }
 
 document.getElementById("hit").onclick = () => {
+  if (gameOver) return;
+
   playerHand.push(deal());
   render();
 
   if (handValue(playerHand) > 21) {
-    losses++;
-    chips -= bet;
-    document.getElementById("message").innerText = "Bust!";
+    endGame("Bust!");
   }
 };
 
 document.getElementById("stand").onclick = () => {
+  if (gameOver) return;
+
+  dealerHidden = false;
+
   while (handValue(dealerHand) < 17) {
     dealerHand.push(deal());
   }
@@ -102,19 +117,9 @@ document.getElementById("stand").onclick = () => {
   const p = handValue(playerHand);
   const d = handValue(dealerHand);
 
-  if (d > 21 || p > d) {
-    wins++;
-    chips += bet;
-    document.getElementById("message").innerText = "You win!";
-  } else if (p < d) {
-    losses++;
-    chips -= bet;
-    document.getElementById("message").innerText = "Dealer wins.";
-  } else {
-    document.getElementById("message").innerText = "Push.";
-  }
-
-  render();
+  if (d > 21 || p > d) endGame("You win!");
+  else if (p < d) endGame("Dealer wins.");
+  else endGame("Push.");
 };
 
 document.getElementById("new").onclick = startHand;
