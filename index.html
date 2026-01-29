@@ -1,57 +1,57 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Blackjack</title>
-  <link rel="stylesheet" href="style.css" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blackjack Game</title>
+    <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
+    <div class="game-container">
+        <header>
+            <h1>🃏 Blackjack 21 🃏</h1>
+            <div class="balance">
+                <span>Balance: $<span id="balance">1000</span></span>
+                <span>Bet: $<span id="current-bet">0</span></span>
+            </div>
+        </header>
 
-  <h1>♠ Blackjack ♣</h1>
+        <div class="game-area">
+            <!-- Dealer Section -->
+            <div class="dealer-section">
+                <h2>Dealer <span id="dealer-score"></span></h2>
+                <div id="dealer-cards" class="cards-container"></div>
+            </div>
 
-  <div class="stats-bar">
-    <div>Chips: <span id="chips">1000</span></div>
-    <button id="stats-btn">Stats</button>
-  </div>
+            <!-- Player Section -->
+            <div class="player-section">
+                <h2>Player <span id="player-score"></span></h2>
+                <div id="player-cards" class="cards-container"></div>
+            </div>
+        </div>
 
-  <div class="table">
+        <!-- Game Controls -->
+        <div class="controls">
+            <div class="betting-controls">
+                <button id="bet-5" class="bet-btn">Bet $5</button>
+                <button id="bet-10" class="bet-btn">Bet $10</button>
+                <button id="bet-25" class="bet-btn">Bet $25</button>
+                <button id="bet-50" class="bet-btn">Bet $50</button>
+                <button id="clear-bet" class="bet-btn">Clear Bet</button>
+            </div>
 
-    <h2>Dealer</h2>
-    <div id="dealer-cards" class="cards"></div>
-    <div id="dealer-score"></div>
+            <div class="game-controls">
+                <button id="deal" class="game-btn">Deal</button>
+                <button id="hit" class="game-btn" disabled>Hit</button>
+                <button id="stand" class="game-btn" disabled>Stand</button>
+                <button id="double-down" class="game-btn" disabled>Double Down</button>
+            </div>
+        </div>
 
-    <h2>You</h2>
-    <div id="player-cards" class="cards"></div>
-    <div id="player-score"></div>
-
-    <div class="buttons">
-      <button id="hit">Hit</button>
-      <button id="stand">Stand</button>
-      <button id="new">New Hand</button>
+        <!-- Game Status -->
+        <div id="game-status" class="game-status"></div>
     </div>
 
-    <h3 id="message"></h3>
-  </div>
-
-  <div id="stats-modal" class="modal hidden">
-    <div class="modal-content">
-      <h2>Player Stats</h2>
-
-      <p>Hands Played: <span id="stat-hands">0</span></p>
-      <p>Hands Won: <span id="stat-wins">0</span></p>
-      <p>User Blackjacks: <span id="stat-user-bj">0</span></p>
-      <p>Dealer Blackjacks: <span id="stat-dealer-bj">0</span></p>
-
-      <button id="close-stats">Close</button>
-    </div>
-  </div>
-
-  <footer>
-    For entertainment purposes only. No real money wagering.
-  </footer>
-
-  <script src="script.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>
