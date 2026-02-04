@@ -5,7 +5,8 @@ import { Label } from "@/app/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/app/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/app/components/ui/tabs";
 import { Alert, AlertDescription } from "@/app/components/ui/alert";
-import { Gamepad2, LogIn, UserPlus, Info } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/app/components/ui/dialog";
+import { Gamepad2, LogIn, UserPlus, Info, PartyPopper, Coins } from "lucide-react";
 import { toast } from "sonner";
 import { projectId, publicAnonKey } from "/utils/supabase/info";
 
@@ -17,6 +18,8 @@ export function AuthForm({ onAuthSuccess }: AuthFormProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [loginForm, setLoginForm] = useState({ username: "", password: "" });
   const [signupForm, setSignupForm] = useState({ username: "", password: "" });
+  const [showWelcomeDialog, setShowWelcomeDialog] = useState(false);
+  const [welcomeData, setWelcomeData] = useState<{ username: string; token: string; balance: number; isAdmin: boolean } | null>(null);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -84,10 +87,15 @@ export function AuthForm({ onAuthSuccess }: AuthFormProps) {
         return;
       }
 
-      toast.success("Account created!", {
-        description: `Welcome to GameHub, ${data.username}`,
+      // Store the signup data and show the welcome dialog
+      setWelcomeData({
+        username: data.username,
+        token: data.token,
+        balance: data.balance,
+        isAdmin: data.isAdmin || false,
       });
-      onAuthSuccess(data.token, data.username, data.balance, data.isAdmin);
+      setShowWelcomeDialog(true);
+      // Don't call onAuthSuccess yet - wait for user to click Continue
     } catch (error) {
       console.error("Signup error:", error);
       toast.error("Signup failed", {
@@ -230,6 +238,51 @@ export function AuthForm({ onAuthSuccess }: AuthFormProps) {
           </Tabs>
         </CardContent>
       </Card>
+
+      <Dialog open={showWelcomeDialog} onOpenChange={setShowWelcomeDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <div className="flex items-center justify-center mb-4">
+              <div className="flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 animate-pulse">
+                <PartyPopper className="h-10 w-10 text-white" />
+              </div>
+            </div>
+            <DialogTitle className="text-3xl text-center">Welcome to GameHub!</DialogTitle>
+            <DialogDescription className="text-center pt-2">
+              Hi <span className="font-semibold text-purple-600">{welcomeData?.username}</span>! 
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="flex items-center justify-center py-6">
+            <div className="bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-lg p-6 text-center shadow-lg">
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <Coins className="h-8 w-8 text-yellow-900" />
+                <span className="text-5xl font-bold text-yellow-900">10</span>
+              </div>
+              <p className="text-sm font-semibold text-yellow-900">Coins Gifted!</p>
+            </div>
+          </div>
+          
+          <p className="text-sm text-center text-muted-foreground">
+            Your welcome bonus has been added to your account. Start playing and have fun!
+          </p>
+          
+          <DialogFooter>
+            <Button
+              type="button"
+              className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+              onClick={() => {
+                setShowWelcomeDialog(false);
+                if (welcomeData) {
+                  onAuthSuccess(welcomeData.token, welcomeData.username, welcomeData.balance, welcomeData.isAdmin);
+                }
+              }}
+            >
+              Continue
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

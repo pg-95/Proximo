@@ -4,7 +4,7 @@ import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/components/ui/select";
-import { Coins } from "lucide-react";
+import { Coins, Clock } from "lucide-react";
 
 interface HostGameDialogProps {
   open: boolean;
@@ -14,6 +14,8 @@ interface HostGameDialogProps {
     gameType: string;
     stake: string;
     stakeAmount?: string;
+    lobbyDuration: string;
+    customDuration?: string;
   }) => void;
   userBalance: number;
 }
@@ -23,21 +25,27 @@ export function HostGameDialog({ open, onOpenChange, onHostGame, userBalance }: 
   const [gameType, setGameType] = useState("Blackjack");
   const [stake, setStake] = useState("Fun");
   const [customStake, setCustomStake] = useState("");
+  const [lobbyDuration, setLobbyDuration] = useState("1h");
+  const [customDuration, setCustomDuration] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (gameName && gameType && stake) {
+    if (gameName && gameType && stake && lobbyDuration) {
       onHostGame({
         name: gameName,
         gameType,
         stake,
         stakeAmount: stake === "custom" ? customStake : undefined,
+        lobbyDuration,
+        customDuration: lobbyDuration === "custom" ? customDuration : undefined,
       });
       // Reset form
       setGameName("");
       setGameType("Blackjack");
       setStake("Fun");
       setCustomStake("");
+      setLobbyDuration("1h");
+      setCustomDuration("");
       onOpenChange(false);
     }
   };
@@ -53,13 +61,19 @@ export function HostGameDialog({ open, onOpenChange, onHostGame, userBalance }: 
     return stakeValue === 0 || userBalance >= stakeValue;
   };
 
+  const isValidDuration = () => {
+    if (lobbyDuration !== "custom") return true;
+    const hours = parseFloat(customDuration);
+    return hours > 0 && hours <= 168; // Max 7 days = 168 hours
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Host a New Game</DialogTitle>
           <DialogDescription>
-            Create a new Blackjack game session for other players to join.
+            Create a new game session for other players to join.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
@@ -82,6 +96,8 @@ export function HostGameDialog({ open, onOpenChange, onHostGame, userBalance }: 
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Blackjack">Blackjack</SelectItem>
+                  <SelectItem value="Casino War">Casino War</SelectItem>
+                  <SelectItem value="Roshambo">Roshambo</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -154,6 +170,43 @@ export function HostGameDialog({ open, onOpenChange, onHostGame, userBalance }: 
                 </p>
               )}
             </div>
+            <div className="grid gap-2">
+              <Label htmlFor="lobbyDuration">Lobby Duration</Label>
+              <Select value={lobbyDuration} onValueChange={setLobbyDuration}>
+                <SelectTrigger id="lobbyDuration">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1h">1 hour</SelectItem>
+                  <SelectItem value="2h">2 hours</SelectItem>
+                  <SelectItem value="1d">1 day</SelectItem>
+                  <SelectItem value="custom">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4" />
+                      <span>Custom (Max 7 days)</span>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              {lobbyDuration === "custom" && (
+                <div className="mt-2">
+                  <Input
+                    type="number"
+                    placeholder="Enter duration in hours (min 1, max 168)"
+                    value={customDuration}
+                    onChange={(e) => setCustomDuration(e.target.value)}
+                    min="1"
+                    max="168"
+                    required
+                  />
+                  {customDuration && !isValidDuration() && (
+                    <p className="text-xs text-destructive mt-1">
+                      Invalid duration. Please enter a value between 1 and 168 hours.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
             <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted p-3 rounded-md">
               <Coins className="h-4 w-4" />
               <span>Your balance: {userBalance} coins</span>
@@ -165,7 +218,7 @@ export function HostGameDialog({ open, onOpenChange, onHostGame, userBalance }: 
             </Button>
             <Button 
               type="submit" 
-              disabled={!hasEnoughBalance()}
+              disabled={!hasEnoughBalance() || !isValidDuration()}
             >
               Create Game
             </Button>

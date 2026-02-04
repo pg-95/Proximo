@@ -25,6 +25,7 @@ const initializeAdmin = async () => {
         gamesPlayed: 0,
         coinsWon: 0,
         coinsLost: 0,
+        coinsAwarded: 0,
       },
       createdAt: new Date().toISOString(),
     };
@@ -95,6 +96,7 @@ app.post("/make-server-519349c9/signup", async (c) => {
         gamesPlayed: 0,
         coinsWon: 0,
         coinsLost: 0,
+        coinsAwarded: 0,
       },
       createdAt: new Date().toISOString(),
     };
@@ -143,6 +145,7 @@ app.post("/make-server-519349c9/login", async (c) => {
             gamesPlayed: 0,
             coinsWon: 0,
             coinsLost: 0,
+            coinsAwarded: 0,
           },
           createdAt: new Date().toISOString(),
         };
@@ -329,14 +332,168 @@ app.get("/make-server-519349c9/admin/users", requireAuth, requireAdmin, async (c
         gamesPlayed: user.stats?.gamesPlayed || 0,
         coinsWon: user.stats?.coinsWon || 0,
         coinsLost: user.stats?.coinsLost || 0,
-        createdAt: user.createdAt || null,
-      }));
+        coinsAwarded: user.stats?.coinsAwarded || 0,
+        createdAt: user.createdAt,
+      }))
+      .sort((a, b) => new Date(b.lastLogin || 0).getTime() - new Date(a.lastLogin || 0).getTime());
 
-    console.log(`Returning ${users.length} users to admin`);
     return c.json(users, 200);
   } catch (error) {
-    console.error("Get users error:", error);
-    return c.json({ error: "Failed to fetch users" }, 500);
+    console.error("Admin get users error:", error);
+    return c.json({ error: "Failed to get users" }, 500);
+  }
+});
+
+// User endpoint to get own stats
+app.get("/make-server-519349c9/user/stats", requireAuth, async (c) => {
+  try {
+    const username = c.get("username");
+    const user = await kv.get(`user:${username}`);
+
+    if (!user) {
+      return c.json({ error: "User not found" }, 404);
+    }
+
+    const stats = {
+      username: user.username,
+      balance: user.balance || 0,
+      lastLogin: user.stats?.lastLogin || null,
+      totalLogins: user.stats?.totalLogins || 0,
+      totalTimeSpent: user.stats?.totalTimeSpent || 0,
+      gamesPlayed: user.stats?.gamesPlayed || 0,
+      coinsWon: user.stats?.coinsWon || 0,
+      coinsLost: user.stats?.coinsLost || 0,
+      createdAt: user.createdAt,
+    };
+
+    console.log(`User ${username} fetched their stats`);
+    return c.json(stats, 200);
+  } catch (error) {
+    console.error("Get user stats error:", error);
+    return c.json({ error: "Failed to get user stats" }, 500);
+  }
+});
+
+// Admin endpoint to send message to user
+app.post("/make-server-519349c9/admin/message", requireAuth, requireAdmin, async (c) => {
+  try {
+    const { username, title, message, coinAmount } = await c.req.json();
+
+    if (!username || !title || !message) {
+      return c.json({ error: "Username, title, and message are required" }, 400);
+    }
+
+    // Check if user exists
+    const user = await kv.get(`user:${username}`);
+    if (!user) {
+      return c.json({ error: "User not found" }, 404);
+    }
+
+    // Create message ID and store message
+    const messageId = crypto.randomUUID();
+    const messageData = {
+      id: messageId,
+      username: username,
+      title: title,
+      message: message,
+      coinAmount: coinAmount || null, // Store coin amount if provided
+      createdAt: new Date().toISOString(),
+      read: false,
+    };
+
+    await kv.set(`message:${username}:${messageId}`, messageData);
+    console.log(`Admin sent message to ${username}: ${title}${coinAmount ? ` with ${coinAmount} coins` : ''}`);
+
+    return c.json({ success: true, message: "Message sent successfully" }, 200);
+  } catch (error) {
+    console.error("Send admin message error:", error);
+    return c.json({ error: "Failed to send message" }, 500);
+  }
+});
+
+// Admin endpoint to adjust user coins
+app.post("/make-server-519349c9/admin/adjust-coins", requireAuth, requireAdmin, async (c) => {
+  try {
+    const { username, amount } = await c.req.json();
+
+    if (!username || amount === undefined || amount === 0) {
+      return c.json({ error: "Username and non-zero amount are required" }, 400);
+    }
+
+    // Get user
+    const user = await kv.get(`user:${username}`);
+    if (!user) {
+      return c.json({ error: "User not found" }, 404);
+    }
+
+    // Adjust balance
+    const newBalance = (user.balance || 0) + amount;
+    
+    // Don't allow negative balance
+    if (newBalance < 0) {
+      return c.json({ error: "Cannot reduce balance below 0" }, 400);
+    }
+
+    user.balance = newBalance;
+
+    // Update stats - track separately as admin-awarded coins
+    if (!user.stats) {
+      user.stats = {};
+    }
+    
+    // Track admin coin adjustments separately from game winnings
+    user.stats.coinsAwarded = (user.stats.coinsAwarded || 0) + amount;
+
+    await kv.set(`user:${username}`, user);
+    console.log(`Admin adjusted ${username}'s balance by ${amount}. New balance: ${newBalance}`);
+
+    return c.json({ 
+      success: true, 
+      newBalance: newBalance,
+      message: `Balance adjusted by ${amount}` 
+    }, 200);
+  } catch (error) {
+    console.error("Adjust coins error:", error);
+    return c.json({ error: "Failed to adjust coins" }, 500);
+  }
+});
+
+// Get user messages (for displaying admin messages to users)
+app.get("/make-server-519349c9/messages", requireAuth, async (c) => {
+  try {
+    const username = c.get("username");
+    const allMessages = await kv.getByPrefix(`message:${username}:`);
+    
+    // Filter out read messages and sort by date
+    const unreadMessages = allMessages
+      .filter(msg => !msg.read)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    return c.json(unreadMessages, 200);
+  } catch (error) {
+    console.error("Get messages error:", error);
+    return c.json({ error: "Failed to get messages" }, 500);
+  }
+});
+
+// Mark message as read
+app.post("/make-server-519349c9/messages/:id/read", requireAuth, async (c) => {
+  try {
+    const username = c.get("username");
+    const messageId = c.req.param("id");
+    
+    const message = await kv.get(`message:${username}:${messageId}`);
+    if (!message) {
+      return c.json({ error: "Message not found" }, 404);
+    }
+
+    message.read = true;
+    await kv.set(`message:${username}:${messageId}`, message);
+    
+    return c.json({ success: true }, 200);
+  } catch (error) {
+    console.error("Mark message as read error:", error);
+    return c.json({ error: "Failed to mark message as read" }, 500);
   }
 });
 
@@ -355,10 +512,10 @@ app.get("/make-server-519349c9/games", requireAuth, async (c) => {
 app.post("/make-server-519349c9/games", requireAuth, async (c) => {
   try {
     const username = c.get("username");
-    const { gameType, stake } = await c.req.json();
+    const { name, gameType, stake, lobbyDuration, customDuration } = await c.req.json();
 
-    if (!gameType || !stake) {
-      return c.json({ error: "Game type and stake are required" }, 400);
+    if (!name || !gameType || !stake) {
+      return c.json({ error: "Game name, type and stake are required" }, 400);
     }
 
     // Validate balance for non-fun stakes
@@ -371,21 +528,37 @@ app.post("/make-server-519349c9/games", requireAuth, async (c) => {
       }
     }
 
+    // Calculate expiry time based on lobby duration
+    let durationHours = 1; // default
+    if (lobbyDuration === "2h") durationHours = 2;
+    else if (lobbyDuration === "1d") durationHours = 24;
+    else if (lobbyDuration === "custom" && customDuration) {
+      durationHours = parseFloat(customDuration);
+      // Validate custom duration
+      if (durationHours < 1 || durationHours > 168) {
+        return c.json({ error: "Custom duration must be between 1 and 168 hours" }, 400);
+      }
+    }
+
+    const expiryTime = new Date(Date.now() + durationHours * 60 * 60 * 1000).toISOString();
+
     const gameId = crypto.randomUUID();
     const game = {
       id: gameId,
+      name,
       gameType,
       host: username,
       stake,
       status: "waiting",
       currentPlayers: 1,
-      maxPlayers: 6,
+      maxPlayers: gameType === "Blackjack" ? 2 : 6, // Blackjack is 1v1, other games can have 6 players
       createdAt: new Date().toISOString(),
+      expiryTime: expiryTime,
     };
 
     await kv.set(`game:${gameId}`, game);
 
-    console.log(`Game created: ${gameId} by ${username}`);
+    console.log(`Game created: ${gameId} by ${username}, name: ${name}, expires at ${expiryTime}`);
     return c.json(game, 201);
   } catch (error) {
     console.error("Create game error:", error);
@@ -405,18 +578,27 @@ app.post("/make-server-519349c9/games/:id/join", requireAuth, async (c) => {
       return c.json({ error: "Game not found" }, 404);
     }
 
-    if (game.status === "full") {
+    // Prevent users from joining their own games
+    if (game.host === username) {
+      return c.json({ error: "You cannot join your own game" }, 400);
+    }
+
+    if (game.status === "full" || game.status === "in-progress") {
       return c.json({ error: "Game is full" }, 400);
     }
 
     game.currentPlayers += 1;
-    if (game.currentPlayers >= game.maxPlayers) {
+    
+    // For Blackjack (max 2 players), when second player joins, set to in-progress
+    if (game.gameType === "Blackjack" && game.currentPlayers >= 2) {
+      game.status = "in-progress";
+    } else if (game.currentPlayers >= game.maxPlayers) {
       game.status = "full";
     }
 
     await kv.set(`game:${gameId}`, game);
 
-    console.log(`User ${username} joined game ${gameId}`);
+    console.log(`User ${username} joined game ${gameId}. Status: ${game.status}, Players: ${game.currentPlayers}/${game.maxPlayers}`);
     return c.json(game, 200);
   } catch (error) {
     console.error("Join game error:", error);
@@ -630,6 +812,254 @@ app.post("/make-server-519349c9/posts/:postId/comments/:commentId/vote", require
   } catch (error) {
     console.error("Vote on comment error:", error);
     return c.json({ error: "Failed to vote on comment" }, 500);
+  }
+});
+
+// Delete a post
+app.delete("/make-server-519349c9/posts/:id", requireAuth, async (c) => {
+  try {
+    const postId = c.req.param("id");
+    const username = c.get("username");
+
+    const post = await kv.get(`post:${postId}`);
+    
+    if (!post) {
+      return c.json({ error: "Post not found" }, 404);
+    }
+
+    // Check if user is the author or admin
+    const user = await kv.get(`user:${username}`);
+    if (post.author !== username && !user.isAdmin) {
+      return c.json({ error: "Unauthorized to delete this post" }, 403);
+    }
+
+    // Delete the post
+    await kv.del(`post:${postId}`);
+
+    // Also delete all comments for this post
+    const allComments = await kv.getByPrefix(`comment:${postId}:`);
+    for (const comment of allComments) {
+      await kv.del(`comment:${postId}:${comment.id}`);
+    }
+
+    console.log(`Post ${postId} deleted by ${username}`);
+    return c.json({ success: true }, 200);
+  } catch (error) {
+    console.error("Delete post error:", error);
+    return c.json({ error: "Failed to delete post" }, 500);
+  }
+});
+
+// Delete a comment
+app.delete("/make-server-519349c9/posts/:postId/comments/:commentId", requireAuth, async (c) => {
+  try {
+    const postId = c.req.param("postId");
+    const commentId = c.req.param("commentId");
+    const username = c.get("username");
+
+    const comment = await kv.get(`comment:${postId}:${commentId}`);
+    
+    if (!comment) {
+      return c.json({ error: "Comment not found" }, 404);
+    }
+
+    // Check if user is the author or admin
+    const user = await kv.get(`user:${username}`);
+    if (comment.author !== username && !user.isAdmin) {
+      return c.json({ error: "Unauthorized to delete this comment" }, 403);
+    }
+
+    // Delete the comment
+    await kv.del(`comment:${postId}:${commentId}`);
+
+    console.log(`Comment ${commentId} deleted by ${username}`);
+    return c.json({ success: true }, 200);
+  } catch (error) {
+    console.error("Delete comment error:", error);
+    return c.json({ error: "Failed to delete comment" }, 500);
+  }
+});
+
+// Admin endpoint to get all games (including past games)
+app.get("/make-server-519349c9/admin/games", requireAuth, requireAdmin, async (c) => {
+  try {
+    const allGames = await kv.getByPrefix("game:");
+    console.log(`Admin fetching all games, found ${allGames.length} games`);
+    
+    // Sort by creation date (newest first)
+    const sortedGames = allGames.sort((a, b) => 
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+    
+    return c.json(sortedGames, 200);
+  } catch (error) {
+    console.error("Admin get games error:", error);
+    return c.json({ error: "Failed to get games" }, 500);
+  }
+});
+
+// Admin endpoint to delete a game
+app.delete("/make-server-519349c9/admin/games/:id", requireAuth, requireAdmin, async (c) => {
+  try {
+    const gameId = c.req.param("id");
+    const game = await kv.get(`game:${gameId}`);
+    
+    if (!game) {
+      return c.json({ error: "Game not found" }, 404);
+    }
+
+    // Mark game as cancelled instead of deleting it
+    game.status = "cancelled";
+    game.endedAt = new Date().toISOString();
+    await kv.set(`game:${gameId}`, game);
+
+    console.log(`Admin cancelled game ${gameId}`);
+    return c.json({ success: true, message: "Game cancelled successfully" }, 200);
+  } catch (error) {
+    console.error("Admin cancel game error:", error);
+    return c.json({ error: "Failed to cancel game" }, 500);
+  }
+});
+
+// Submit feedback
+app.post("/make-server-519349c9/feedback", requireAuth, async (c) => {
+  try {
+    const username = c.get("username");
+    const { subject, message } = await c.req.json();
+    
+    if (!subject || !message) {
+      return c.json({ error: "Subject and message are required" }, 400);
+    }
+    
+    // Validate character limits
+    if (subject.length > 100) {
+      return c.json({ error: "Subject must be 100 characters or less" }, 400);
+    }
+    
+    if (message.length > 1000) {
+      return c.json({ error: "Message must be 1000 characters or less" }, 400);
+    }
+    
+    const feedbackId = crypto.randomUUID();
+    const feedback = {
+      id: feedbackId,
+      username,
+      subject,
+      message,
+      createdAt: new Date().toISOString(),
+      status: "unread",
+      replies: [],
+    };
+    
+    await kv.set(`feedback:${feedbackId}`, feedback);
+    
+    console.log(`Feedback submitted by ${username}: ${feedbackId}`);
+    return c.json(feedback, 201);
+  } catch (error) {
+    console.error("Submit feedback error:", error);
+    return c.json({ error: "Failed to submit feedback" }, 500);
+  }
+});
+
+// Get user's feedback
+app.get("/make-server-519349c9/feedback", requireAuth, async (c) => {
+  try {
+    const username = c.get("username");
+    
+    const allFeedback = await kv.getByPrefix("feedback:");
+    const userFeedback = allFeedback.filter(f => f.username === username);
+    
+    // Sort by creation date (newest first)
+    const sortedFeedback = userFeedback.sort((a, b) => 
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+    
+    return c.json(sortedFeedback, 200);
+  } catch (error) {
+    console.error("Get feedback error:", error);
+    return c.json({ error: "Failed to get feedback" }, 500);
+  }
+});
+
+// Admin: Get all feedback
+app.get("/make-server-519349c9/admin/feedback", requireAuth, requireAdmin, async (c) => {
+  try {
+    const allFeedback = await kv.getByPrefix("feedback:");
+    
+    // Sort by creation date (newest first)
+    const sortedFeedback = allFeedback.sort((a, b) => 
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+    
+    console.log(`Admin fetching all feedback, found ${allFeedback.length} items`);
+    return c.json(sortedFeedback, 200);
+  } catch (error) {
+    console.error("Admin get feedback error:", error);
+    return c.json({ error: "Failed to get feedback" }, 500);
+  }
+});
+
+// Admin: Reply to feedback
+app.post("/make-server-519349c9/admin/feedback/:id/reply", requireAuth, requireAdmin, async (c) => {
+  try {
+    const feedbackId = c.req.param("id");
+    const { reply } = await c.req.json();
+    
+    if (!reply) {
+      return c.json({ error: "Reply is required" }, 400);
+    }
+    
+    if (reply.length > 1000) {
+      return c.json({ error: "Reply must be 1000 characters or less" }, 400);
+    }
+    
+    const feedback = await kv.get(`feedback:${feedbackId}`);
+    
+    if (!feedback) {
+      return c.json({ error: "Feedback not found" }, 404);
+    }
+    
+    // Add reply
+    const replyObj = {
+      id: crypto.randomUUID(),
+      message: reply,
+      createdAt: new Date().toISOString(),
+    };
+    
+    feedback.replies = feedback.replies || [];
+    feedback.replies.push(replyObj);
+    feedback.status = "replied";
+    
+    await kv.set(`feedback:${feedbackId}`, feedback);
+    
+    console.log(`Admin replied to feedback ${feedbackId}`);
+    return c.json(feedback, 200);
+  } catch (error) {
+    console.error("Admin reply to feedback error:", error);
+    return c.json({ error: "Failed to reply to feedback" }, 500);
+  }
+});
+
+// Admin: Mark feedback as read
+app.post("/make-server-519349c9/admin/feedback/:id/read", requireAuth, requireAdmin, async (c) => {
+  try {
+    const feedbackId = c.req.param("id");
+    
+    const feedback = await kv.get(`feedback:${feedbackId}`);
+    
+    if (!feedback) {
+      return c.json({ error: "Feedback not found" }, 404);
+    }
+    
+    if (feedback.status === "unread") {
+      feedback.status = "read";
+      await kv.set(`feedback:${feedbackId}`, feedback);
+    }
+    
+    return c.json(feedback, 200);
+  } catch (error) {
+    console.error("Admin mark feedback as read error:", error);
+    return c.json({ error: "Failed to mark feedback as read" }, 500);
   }
 });
 
